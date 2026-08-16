@@ -174,11 +174,11 @@ class EditorPage extends ChangeNotifier implements HasSize {
     'h': size.height,
     if (strokes.isNotEmpty)
       's': strokes.map((stroke) => stroke.toJson()).toList(),
+    if (backgroundImage != null) 'b': backgroundImage?.toJson(assets),
     if (images.isNotEmpty)
       'i': images.map((image) => image.toJson(assets)).toList(),
     if (!quill.controller.document.isEmpty())
       'q': quill.controller.document.toDelta().toJson(),
-    if (backgroundImage != null) 'b': backgroundImage?.toJson(assets),
   };
 
   /// Inserts a stroke, while keeping the strokes sorted by

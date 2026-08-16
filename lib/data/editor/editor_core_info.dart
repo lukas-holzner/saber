@@ -523,6 +523,24 @@ class EditorCoreInfo {
     return (bson.byteList, assets);
   }
 
+  /// Updates the backing file references of all images in the note
+  /// to point to the current saved asset files `$filePath.$assetIndex`.
+  void updateAssetFiles(String filePath) {
+    for (final page in pages) {
+      final bg = page.backgroundImage;
+      if (bg != null && bg.lastSavedAssetIndex != null) {
+        final file = FileManager.getFile('$filePath.${bg.lastSavedAssetIndex}');
+        bg.updateAssetFile(file);
+      }
+      for (final image in page.images) {
+        if (image.lastSavedAssetIndex != null) {
+          final file = FileManager.getFile('$filePath.${image.lastSavedAssetIndex}');
+          image.updateAssetFile(file);
+        }
+      }
+    }
+  }
+
   void dispose() {
     for (final page in pages) {
       page.dispose();

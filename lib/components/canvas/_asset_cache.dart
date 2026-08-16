@@ -98,6 +98,22 @@ class OrderedAssetCache {
         index = i;
         break;
       }
+    } else if (index == -1 && value is File) {
+      for (int i = 0; i < _cache.length; i++) {
+        final cacheItem = _cache[i];
+        if (cacheItem is File && cacheItem.path == value.path) {
+          index = i;
+          break;
+        }
+      }
+    } else if (index == -1 && value is FileImage) {
+      for (int i = 0; i < _cache.length; i++) {
+        final cacheItem = _cache[i];
+        if (cacheItem is FileImage && cacheItem.file.path == value.file.path) {
+          index = i;
+          break;
+        }
+      }
     }
     log.fine('OrderedAssetCache.add: index = $index, value = $value');
 

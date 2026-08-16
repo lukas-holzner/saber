@@ -48,6 +48,12 @@ sealed class EditorImage extends ChangeNotifier {
   void Function()? onMiscChange;
   final VoidCallback? onLoad;
 
+  /// The asset index assigned during the most recent call to [toJson].
+  int? lastSavedAssetIndex;
+
+  /// Updates the file backing this image to [newFile] after saving to disk.
+  void updateAssetFile(File newFile) {}
+
   Rect srcRect = .zero;
 
   late var _dstRect = Rect.fromLTWH(

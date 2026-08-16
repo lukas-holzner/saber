@@ -943,20 +943,27 @@ class EditorState extends State<Editor> {
       coreInfo.assetCache.allowRemovingAssets = true;
     }
     try {
+      // Phase 1: Retrieve all asset byte buffers into memory before writing anything to disk.
+      // This prevents race conditions where an asset write overwrites a file being read by another asset.
+      final assetBytesList = await Future.wait([
+        for (int i = 0; i < assets.length; ++i) assets.getBytes(i),
+      ]);
+
+      // Phase 2: Safely write metadata, assets, and remove unused asset files.
       await Future.wait([
         FileManager.writeFile(filePath, bson, awaitWrite: true),
         for (int i = 0; i < assets.length; ++i)
-          assets
-              .getBytes(i)
-              .then(
-                (bytes) => FileManager.writeFile(
-                  '$filePath.$i',
-                  bytes,
-                  awaitWrite: true,
-                ),
-              ),
+          FileManager.writeFile(
+            '$filePath.$i',
+            assetBytesList[i],
+            awaitWrite: true,
+          ),
         FileManager.removeUnusedAssets(filePath, numAssets: assets.length),
       ]);
+
+      // Phase 3: Update in-memory file pointers to point to their new asset file paths.
+      coreInfo.updateAssetFiles(filePath);
+
       savingState.value = .saved;
       history.markLastChangeAsSaved();
     } catch (e, st) {

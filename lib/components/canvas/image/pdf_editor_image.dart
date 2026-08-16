@@ -9,7 +9,7 @@ class PdfEditorImage extends EditorImage {
 
   /// If the pdf needs to be loaded from disk, this is the File
   /// that the pdf will be loaded from.
-  final File? pdfFile;
+  File? pdfFile;
 
   final _pdfDocument = ValueNotifier<PdfDocument?>(null);
 
@@ -109,10 +109,17 @@ class PdfEditorImage extends EditorImage {
     assert(!json.containsKey('a'));
     assert(!json.containsKey('b'));
 
-    json['a'] = assets.add(pdfFile ?? pdfBytes!);
+    final assetIndex = assets.add(pdfFile ?? pdfBytes!);
+    json['a'] = assetIndex;
     json['pdfi'] = pdfPage;
+    lastSavedAssetIndex = assetIndex;
 
     return json;
+  }
+
+  @override
+  void updateAssetFile(File newFile) {
+    pdfFile = newFile;
   }
 
   @override
