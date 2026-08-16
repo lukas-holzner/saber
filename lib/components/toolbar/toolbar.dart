@@ -110,6 +110,7 @@ class _ToolbarState extends State<Toolbar> {
   Keybinding? _ctrlShiftS;
   Keybinding? _f11;
   Keybinding? _ctrlV;
+  Keybinding? _cmdV;
   void _assignKeybindings() {
     _ctrlF = Keybinding([
       KeyCode.ctrl,
@@ -133,6 +134,10 @@ class _ToolbarState extends State<Toolbar> {
       KeyCode.ctrl,
       KeyCode.from(LogicalKeyboardKey.keyV),
     ], inclusive: true);
+    _cmdV = Keybinding([
+      KeyCode.from(LogicalKeyboardKey.meta),
+      KeyCode.from(LogicalKeyboardKey.keyV),
+    ], inclusive: true);
 
     Keybinder.bind(_ctrlF!, widget.toggleFingerDrawing);
     Keybinder.bind(_ctrlE!, toggleEraser);
@@ -140,6 +145,7 @@ class _ToolbarState extends State<Toolbar> {
     Keybinder.bind(_ctrlShiftS!, toggleExportBar);
     Keybinder.bind(_f11!, toggleFullscreen);
     Keybinder.bind(_ctrlV!, widget.paste);
+    Keybinder.bind(_cmdV!, widget.paste);
   }
 
   void _removeKeybindings() {
@@ -149,6 +155,7 @@ class _ToolbarState extends State<Toolbar> {
     if (_ctrlShiftS != null) Keybinder.remove(_ctrlShiftS!);
     if (_f11 != null) Keybinder.remove(_f11!);
     if (_ctrlV != null) Keybinder.remove(_ctrlV!);
+    if (_cmdV != null) Keybinder.remove(_cmdV!);
   }
 
   void toggleEraser() {
@@ -460,6 +467,7 @@ class _ToolbarState extends State<Toolbar> {
                 tooltip: t.editor.toolbar.photo,
                 enabled: !widget.readOnly,
                 onPressed: widget.pickPhoto,
+                onLongPress: widget.paste,
                 padding: buttonPadding,
                 child: const AdaptiveIcon(
                   icon: Icons.photo,

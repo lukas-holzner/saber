@@ -1251,20 +1251,32 @@ class EditorState extends State<Editor> {
   }
 
   Future paste() async {
+    if (coreInfo.readOnly) return;
+
     /// Maps image formats to their file extension.
     const Map<SimpleFileFormat, String> formats = {
-      Formats.jpeg: '.jpeg',
       Formats.png: '.png',
+      Formats.jpeg: '.jpeg',
+      Formats.webp: '.webp',
       Formats.gif: '.gif',
+      Formats.svg: '.svg',
       Formats.tiff: '.tiff',
       Formats.bmp: '.bmp',
       Formats.ico: '.ico',
-      Formats.svg: '.svg',
-      Formats.webp: '.webp',
     };
 
     final reader = await SystemClipboard.instance?.read();
-    if (reader == null) return;
+    if (reader == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No image found on clipboard'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
 
     final List<_PhotoInfo> photoInfos = [];
     final List<ReadProgress> progresses = [];
@@ -1283,7 +1295,7 @@ class EditorState extends State<Editor> {
         }
 
         String extension;
-        if (file.fileName != null) {
+        if (file.fileName != null && file.fileName!.contains('.')) {
           extension = file.fileName!.substring(file.fileName!.lastIndexOf('.'));
         } else {
           extension = formats[format]!;
@@ -1295,11 +1307,25 @@ class EditorState extends State<Editor> {
         ));
       });
       if (progress != null) progresses.add(progress);
+      // Grab the primary image format provided by the clipboard to avoid duplicate formats
+      break;
     }
 
     while (progresses.isNotEmpty) {
       progresses.removeWhere((progress) => progress.fraction.value == 1);
       await Future.delayed(const Duration(milliseconds: 50));
+    }
+
+    if (photoInfos.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No image found on clipboard'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
     }
 
     await _pickPhotos(photoInfos);
@@ -1805,6 +1831,7 @@ class EditorState extends State<Editor> {
         autosaveAfterDelay();
       }),
       pickPhotos: _pickPhotos,
+      paste: paste,
       importPdf: importPdf,
       canRasterPdf: Editor.canRasterPdf,
       getIsWatchingServer: () => _watchServerTimer?.isActive ?? false,

@@ -7,6 +7,7 @@ class ToolbarIconButton extends StatelessWidget {
     this.selected = false,
     this.enabled = true,
     required this.onPressed,
+    this.onLongPress,
     required this.padding,
     required this.child,
   });
@@ -15,6 +16,7 @@ class ToolbarIconButton extends StatelessWidget {
   final bool selected;
   final bool enabled;
   final VoidCallback? onPressed;
+  final VoidCallback? onLongPress;
 
   final EdgeInsets padding;
   final Widget child;
@@ -47,15 +49,22 @@ class ToolbarIconButton extends StatelessWidget {
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
 
+    final button = IconButton.filled(
+      style: buttonStyle,
+      onPressed: (enabled) ? onPressed : null,
+      tooltip: tooltip,
+      isSelected: selected,
+      icon: child,
+    );
+
     return Padding(
       padding: padding,
-      child: IconButton.filled(
-        style: buttonStyle,
-        onPressed: (enabled) ? onPressed : null,
-        tooltip: tooltip,
-        isSelected: selected,
-        icon: child,
-      ),
+      child: (onLongPress != null && enabled)
+          ? GestureDetector(
+              onLongPress: onLongPress,
+              child: button,
+            )
+          : button,
     );
   }
 }

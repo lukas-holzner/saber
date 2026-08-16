@@ -27,6 +27,7 @@ class EditorBottomSheet extends StatefulWidget {
     required this.clearAllPages,
     required this.redrawAndSave,
     required this.pickPhotos,
+    required this.paste,
     required this.importPdf,
     required this.canRasterPdf,
     required this.getIsWatchingServer,
@@ -45,6 +46,7 @@ class EditorBottomSheet extends StatefulWidget {
   final VoidCallback clearAllPages;
   final VoidCallback redrawAndSave;
   final Future<int> Function() pickPhotos;
+  final Future Function() paste;
   final Future<bool> Function() importPdf;
   final bool canRasterPdf;
   final bool Function() getIsWatchingServer;
@@ -302,6 +304,14 @@ class _EditorBottomSheetState extends State<EditorBottomSheet> {
                     }
                   },
                   child: Text(t.editor.toolbar.photo),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    await widget.paste();
+                    if (!context.mounted) return;
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Paste'),
                 ),
                 if (widget.canRasterPdf)
                   ElevatedButton(
