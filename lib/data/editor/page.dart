@@ -11,6 +11,7 @@ import 'package:saber/components/canvas/image/editor_image.dart';
 import 'package:saber/components/canvas/inner_canvas.dart';
 import 'package:saber/components/canvas/pencil_shader.dart';
 import 'package:saber/data/editor/editor_exporter.dart';
+import 'package:saber/data/editor/text_box.dart';
 import 'package:saber/data/tools/laser_pointer.dart';
 import 'package:sbn/has_size.dart';
 
@@ -47,6 +48,7 @@ class EditorPage extends ChangeNotifier implements HasSize {
   final List<Stroke> strokes;
   final List<LaserStroke> laserStrokes;
   final List<EditorImage> images;
+  final List<EditorTextBox> textBoxes;
   final QuillStruct quill;
 
   EditorImage? backgroundImage;
@@ -54,6 +56,7 @@ class EditorPage extends ChangeNotifier implements HasSize {
   bool get isEmpty =>
       strokes.isEmpty &&
       images.isEmpty &&
+      textBoxes.isEmpty &&
       quill.controller.document.isEmpty() &&
       backgroundImage == null;
   bool get isNotEmpty => !isEmpty;
@@ -79,6 +82,9 @@ class EditorPage extends ChangeNotifier implements HasSize {
     }
     for (final image in images) {
       maxY = max(maxY, image.dstRect.bottom);
+    }
+    for (final tb in textBoxes) {
+      maxY = max(maxY, tb.dstRect.bottom);
     }
     if (!quill.controller.document.isEmpty()) {
       // this does not account for text that wraps to the next line
@@ -106,6 +112,7 @@ class EditorPage extends ChangeNotifier implements HasSize {
     double? height,
     List<Stroke>? strokes,
     List<EditorImage>? images,
+    List<EditorTextBox>? textBoxes,
     QuillStruct? quill,
     this.backgroundImage,
   }) : assert(
@@ -116,12 +123,21 @@ class EditorPage extends ChangeNotifier implements HasSize {
        strokes = strokes ?? [],
        laserStrokes = [],
        images = images ?? [],
+       textBoxes = textBoxes ?? [],
        quill =
            quill ??
            QuillStruct(
              controller: QuillController.basic(),
              focusNode: FocusNode(debugLabel: 'Quill Focus Node'),
            );
+
+  static List<EditorTextBox> parseTextBoxesJson(List? json) {
+    if (json == null) return [];
+    return json
+        .whereType<Map<String, dynamic>>()
+        .map(EditorTextBox.fromJson)
+        .toList();
+  }
 
   factory fromJson(
     Map<String, dynamic> json, {
@@ -148,6 +164,7 @@ class EditorPage extends ChangeNotifier implements HasSize {
         sbnPath: sbnPath,
         assetCache: assetCache,
       ),
+      textBoxes: parseTextBoxesJson(json['tb'] as List?),
       quill: QuillStruct(
         controller: json['q'] != null
             ? QuillController(
@@ -177,6 +194,8 @@ class EditorPage extends ChangeNotifier implements HasSize {
     if (backgroundImage != null) 'b': backgroundImage?.toJson(assets),
     if (images.isNotEmpty)
       'i': images.map((image) => image.toJson(assets)).toList(),
+    if (textBoxes.isNotEmpty)
+      'tb': textBoxes.map((tb) => tb.toJson()).toList(),
     if (!quill.controller.document.isEmpty())
       'q': quill.controller.document.toDelta().toJson(),
   };
@@ -279,11 +298,12 @@ class EditorPage extends ChangeNotifier implements HasSize {
     notifyListeners();
   }
 
-  /// Updates the `pageIndex` fields of this page's strokes/images.
+  /// Updates the `pageIndex` fields of this page's strokes/images/textBoxes.
   void updatePageIndex(int pageIndex) {
     for (final stroke in strokes) stroke.pageIndex = pageIndex;
     for (final stroke in laserStrokes) stroke.pageIndex = pageIndex;
     for (final image in images) image.pageIndex = pageIndex;
+    for (final tb in textBoxes) tb.pageIndex = pageIndex;
     backgroundImage?.pageIndex = pageIndex;
   }
 
@@ -294,6 +314,9 @@ class EditorPage extends ChangeNotifier implements HasSize {
     isRendered = false;
     for (final image in images) {
       image.dispose();
+    }
+    for (final tb in textBoxes) {
+      tb.dispose();
     }
     backgroundImage?.dispose();
     super.dispose();
@@ -309,6 +332,9 @@ class EditorPage extends ChangeNotifier implements HasSize {
     quill.dispose();
     _pencilShader?.dispose();
     isRendered = false;
+    for (final tb in textBoxes) {
+      tb.dispose();
+    }
     super.dispose();
   }
 
@@ -316,12 +342,14 @@ class EditorPage extends ChangeNotifier implements HasSize {
     Size? size,
     List<Stroke>? strokes,
     List<EditorImage>? images,
+    List<EditorTextBox>? textBoxes,
     QuillStruct? quill,
     EditorImage? backgroundImage,
   }) => EditorPage(
     size: size ?? this.size,
     strokes: strokes ?? this.strokes,
     images: images ?? this.images,
+    textBoxes: textBoxes ?? this.textBoxes,
     quill: quill ?? this.quill,
     backgroundImage: backgroundImage ?? this.backgroundImage,
   );
@@ -339,6 +367,7 @@ class EditorPage extends ChangeNotifier implements HasSize {
           ? strokes
           : strokes.where(EditorExporter.shouldRasterizeStroke).toList(),
       quill: quill.cloneForScreenshot(),
+      textBoxes: textBoxes.map((tb) => tb.cloneForScreenshot()).toList(),
     );
   }
 }

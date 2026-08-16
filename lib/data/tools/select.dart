@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:saber/components/canvas/_stroke.dart';
 import 'package:saber/components/canvas/image/editor_image.dart';
+import 'package:saber/data/editor/text_box.dart';
 import 'package:saber/data/tools/_tool.dart';
 import 'package:sbn/tool_id.dart';
 
@@ -18,6 +19,7 @@ class Select extends Tool {
     pageIndex: -1,
     strokes: const [],
     images: const [],
+    textBoxes: const [],
     path: Path(),
   );
   var doneSelecting = false;
@@ -55,6 +57,7 @@ class Select extends Tool {
       pageIndex: pageIndex,
       strokes: [],
       images: [],
+      textBoxes: [],
       path: Path(),
     );
     selectResult.path.moveTo(position.dx, position.dy);
@@ -65,9 +68,13 @@ class Select extends Tool {
     selectResult.path.lineTo(position.dx, position.dy);
   }
 
-  /// Adds the indices of any [strokes] that are inside the selection area
-  /// to [selectResult.indices].
-  void onDragEnd(List<Stroke> strokes, List<EditorImage> images) {
+  /// Adds the indices of any [strokes], [images], or [textBoxes] that are inside the selection area
+  /// to [selectResult].
+  void onDragEnd(
+    List<Stroke> strokes,
+    List<EditorImage> images, [
+    List<EditorTextBox> textBoxes = const [],
+  ]) {
     selectResult.path.close();
     doneSelecting = true;
 
@@ -87,6 +94,14 @@ class Select extends Tool {
       final percentInside = rectPercentInside(selectResult.path, image.dstRect);
       if (percentInside >= minPercentInside) {
         selectResult.images.add(image);
+      }
+    }
+
+    for (int i = 0; i < textBoxes.length; i++) {
+      final tb = textBoxes[i];
+      final percentInside = rectPercentInside(selectResult.path, tb.dstRect);
+      if (percentInside >= minPercentInside) {
+        selectResult.textBoxes.add(tb);
       }
     }
   }
@@ -126,29 +141,33 @@ class SelectResult {
   int pageIndex;
   final List<Stroke> strokes;
   final List<EditorImage> images;
+  final List<EditorTextBox> textBoxes;
   Path path;
 
   new({
     required this.pageIndex,
     required this.strokes,
     required this.images,
+    this.textBoxes = const [],
     required this.path,
   });
 
   bool get isEmpty {
-    return strokes.isEmpty && images.isEmpty;
+    return strokes.isEmpty && images.isEmpty && textBoxes.isEmpty;
   }
 
   SelectResult copyWith({
     int? pageIndex,
     List<Stroke>? strokes,
     List<EditorImage>? images,
+    List<EditorTextBox>? textBoxes,
     Path? path,
   }) {
     return SelectResult(
       pageIndex: pageIndex ?? this.pageIndex,
       strokes: strokes ?? this.strokes,
       images: images ?? this.images,
+      textBoxes: textBoxes ?? this.textBoxes,
       path: path ?? this.path,
     );
   }

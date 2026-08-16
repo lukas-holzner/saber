@@ -12,9 +12,17 @@ abstract class Tool {
   ToolId get toolId;
 
   static const Tool textEditing = _TextEditingTool();
+  static const Tool textBox = _TextBoxTool();
 }
 
 class _TextEditingTool extends Tool {
+  const new();
+
+  @override
+  ToolId get toolId => .textEditing;
+}
+
+class _TextBoxTool extends Tool {
   const new();
 
   @override

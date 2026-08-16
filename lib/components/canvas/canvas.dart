@@ -6,6 +6,7 @@ import 'package:saber/components/canvas/image/editor_image.dart';
 import 'package:saber/components/canvas/inner_canvas.dart';
 import 'package:saber/data/editor/editor_core_info.dart';
 import 'package:saber/data/editor/page.dart';
+import 'package:saber/data/editor/text_box.dart';
 import 'package:saber/data/tools/_tool.dart';
 import 'package:saber/data/tools/pen.dart';
 import 'package:saber/data/tools/select.dart';
@@ -23,6 +24,7 @@ class Canvas extends StatelessWidget {
     required this.currentStrokeDetectedShape,
     required this.currentSelection,
     required this.setAsBackground,
+    this.onDeleteTextBox,
     required this.currentTool,
     required this.currentScale,
     this.placeholder = false,
@@ -39,6 +41,7 @@ class Canvas extends StatelessWidget {
   final SelectResult? currentSelection;
 
   final void Function(EditorImage image)? setAsBackground;
+  final void Function(EditorTextBox textBox)? onDeleteTextBox;
 
   final Tool currentTool;
   final double currentScale;
@@ -126,6 +129,7 @@ class Canvas extends StatelessWidget {
                       currentStrokeDetectedShape: currentStrokeDetectedShape,
                       currentSelection: currentSelection,
                       setAsBackground: setAsBackground,
+                      onDeleteTextBox: onDeleteTextBox,
                       currentToolIsSelect: currentTool.toolId == ToolId.select,
                       currentScale: currentScale,
                     ),

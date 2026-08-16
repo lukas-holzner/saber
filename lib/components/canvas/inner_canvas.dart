@@ -6,8 +6,10 @@ import 'package:saber/components/canvas/_canvas_background_painter.dart';
 import 'package:saber/components/canvas/_canvas_painter.dart';
 import 'package:saber/components/canvas/_stroke.dart';
 import 'package:saber/components/canvas/canvas_image.dart';
+import 'package:saber/components/canvas/canvas_text_box.dart';
 import 'package:saber/components/canvas/image/editor_image.dart';
 import 'package:saber/data/editor/editor_core_info.dart';
+import 'package:saber/data/editor/text_box.dart';
 import 'package:saber/data/prefs.dart';
 import 'package:saber/data/tools/select.dart';
 import 'package:saber/i18n/strings.g.dart';
@@ -28,6 +30,7 @@ class InnerCanvas extends StatefulWidget {
     required this.currentStrokeDetectedShape,
     required this.currentSelection,
     this.setAsBackground,
+    this.onDeleteTextBox,
     this.onRenderObjectChange,
     required this.currentToolIsSelect,
     required this.currentScale,
@@ -44,6 +47,7 @@ class InnerCanvas extends StatefulWidget {
   final RecognizedUnistroke? currentStrokeDetectedShape;
   final SelectResult? currentSelection;
   final void Function(EditorImage image)? setAsBackground;
+  final void Function(EditorTextBox textBox)? onDeleteTextBox;
   final ValueChanged<RenderObject>? onRenderObjectChange;
 
   final bool currentToolIsSelect;
@@ -62,9 +66,7 @@ class _InnerCanvasState extends State<InnerCanvas> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final brightness = theme.brightness;
-    final invert = stows.editorAutoInvert.value && brightness == .dark;
-    final Color backgroundColor =
-        widget.coreInfo.backgroundColor ?? InnerCanvas.defaultBackgroundColor;
+    final invert = stows.editorAutoInvert.value && brightness == Brightness.dark;
 
     if (widget.coreInfo.pages.isEmpty) {
       return SizedBox(width: widget.width, height: widget.height);
@@ -72,45 +74,45 @@ class _InnerCanvasState extends State<InnerCanvas> {
 
     final page = widget.coreInfo.pages[widget.pageIndex];
 
-    final quillEditor = widget.coreInfo.pages.isNotEmpty
-        ? QuillEditor(
-            controller:
-                widget.coreInfo.pages[widget.pageIndex].quill.controller,
-            config: QuillEditorConfig(
-              customStyles: SaberQuillStyles.get(
-                invert: invert,
-                secondary: colorScheme.secondary,
-                lineHeight: widget.coreInfo.lineHeight,
-              ),
-              scrollable: false,
-              autoFocus: false,
-              expands: true,
-              placeholder: widget.textEditing
-                  ? t.editor.quill.typeSomething
-                  : null,
-              showCursor: true,
-              keyboardAppearance: invert ? .dark : .light,
-              padding: .only(
-                top: widget.coreInfo.lineHeight * 1.2,
-                left: widget.coreInfo.lineHeight * 0.5,
-                right: widget.coreInfo.lineHeight * 0.5,
-                bottom: widget.coreInfo.lineHeight * 0.5,
-              ),
-            ),
-            scrollController: ScrollController(),
-            focusNode: widget.coreInfo.pages[widget.pageIndex].quill.focusNode,
-          )
-        : null;
+    final quillEditor = QuillEditor(
+      controller: page.quill.controller,
+      config: QuillEditorConfig(
+        customStyles: SaberQuillStyles.get(
+          invert: invert,
+          secondary: colorScheme.secondary,
+          lineHeight: widget.coreInfo.lineHeight,
+        ),
+        scrollable: false,
+        autoFocus: false,
+        expands: true,
+        placeholder: widget.coreInfo.readOnly || !widget.textEditing
+            ? null
+            : t.editor.quill.typeSomething,
+        showCursor: widget.textEditing,
+        keyboardAppearance: invert ? Brightness.dark : Brightness.light,
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 16 + (widget.coreInfo.lineHeight - 16) / 2,
+          bottom: 16,
+        ),
+      ),
+      scrollController: ScrollController(),
+      focusNode: page.quill.focusNode,
+    );
 
-    return RepaintBoundary(
+    return Align(
+      alignment: Alignment.topCenter,
       child: CustomPaint(
+        isComplex: true,
         painter: CanvasBackgroundPainter(
           invert: invert,
           backgroundColor: () {
             if (page.backgroundImage != null) {
               return Colors.white;
             } else {
-              return backgroundColor;
+              return widget.coreInfo.backgroundColor ??
+                  InnerCanvas.defaultBackgroundColor;
             }
           }(),
           backgroundPattern: () {
@@ -140,7 +142,6 @@ class _InnerCanvasState extends State<InnerCanvas> {
           currentScale: widget.currentScale,
           defaultTextStyle: theme.textTheme.bodyMedium!,
         ),
-        isComplex: true,
         willChange: true,
         child: SizedBox(
           width: widget.width,
@@ -180,6 +181,26 @@ class _InnerCanvasState extends State<InnerCanvas> {
                           page.images[i],
                         ) ??
                         false,
+                  ),
+                for (int i = 0; i < page.textBoxes.length; i++)
+                  CanvasTextBox(
+                    textBox: page.textBoxes[i],
+                    coreInfo: widget.coreInfo,
+                    pageIndex: widget.pageIndex,
+                    readOnly: widget.coreInfo.readOnly,
+                    isTextEditing: widget.textEditing,
+                    onDelete: (tb) {
+                      if (widget.onDeleteTextBox != null) {
+                        widget.onDeleteTextBox!(tb);
+                      } else {
+                        page.textBoxes.remove(tb);
+                        page.notifyListeners();
+                      }
+                    },
+                    onChange: () {
+                      if (widget.coreInfo.readOnly) return;
+                      page.notifyListeners();
+                    },
                   ),
               ],
             ),

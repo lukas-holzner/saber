@@ -302,7 +302,10 @@ class _ToolbarState extends State<Toolbar> {
                 ? CollapsibleAxis.horizontal
                 : CollapsibleAxis.vertical,
             maintainState: false,
-            collapsed: !widget.textEditing || quill == null,
+            collapsed:
+                (!widget.textEditing &&
+                    widget.currentTool != Tool.textBox) ||
+                quill == null,
             child: quill != null
                 ? QuillSimpleToolbar(
                     controller: quill.controller,
@@ -483,6 +486,24 @@ class _ToolbarState extends State<Toolbar> {
                 child: const AdaptiveIcon(
                   icon: Icons.text_fields,
                   cupertinoIcon: CupertinoIcons.text_cursor,
+                ),
+              ),
+              ToolbarIconButton(
+                tooltip: 'Text box',
+                selected: widget.currentTool == Tool.textBox,
+                enabled: !widget.readOnly,
+                onPressed: () {
+                  toolOptionsType.value = .hide;
+                  if (widget.currentTool == Tool.textBox) {
+                    widget.setTool(Pen.currentPen);
+                  } else {
+                    widget.setTool(Tool.textBox);
+                  }
+                },
+                padding: buttonPadding,
+                child: const AdaptiveIcon(
+                  icon: Icons.add_box_outlined,
+                  cupertinoIcon: CupertinoIcons.textbox,
                 ),
               ),
               if (!stows.hideFingerDrawingToggle.value)

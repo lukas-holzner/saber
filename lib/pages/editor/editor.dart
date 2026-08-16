@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:collapsible/collapsible.dart';
 import 'package:file_picker/file_picker.dart';
@@ -34,6 +35,7 @@ import 'package:saber/data/editor/editor_core_info.dart';
 import 'package:saber/data/editor/editor_exporter.dart';
 import 'package:saber/data/editor/editor_history.dart';
 import 'package:saber/data/editor/page.dart';
+import 'package:saber/data/editor/text_box.dart';
 import 'package:saber/data/extensions/change_notifier_extensions.dart';
 import 'package:saber/data/extensions/matrix4_extensions.dart';
 import 'package:saber/data/file_manager/file_manager.dart';
@@ -216,6 +218,9 @@ class EditorState extends State<Editor> {
 
     for (int pageIndex = 0; pageIndex < coreInfo.pages.length; pageIndex++) {
       listenToQuillChanges(coreInfo.pages[pageIndex].quill, pageIndex);
+      for (final tb in coreInfo.pages[pageIndex].textBoxes) {
+        listenToQuillChanges(tb.quill, pageIndex);
+      }
     }
 
     if (coreInfo.isEmpty) {
@@ -364,6 +369,9 @@ class EditorState extends State<Editor> {
           for (final image in item.images) {
             coreInfo.pages[image.pageIndex].images.remove(image);
           }
+          for (final tb in item.textBoxes) {
+            coreInfo.pages[tb.pageIndex].textBoxes.remove(tb);
+          }
           removeExcessPages();
 
         case .erase:
@@ -375,6 +383,10 @@ class EditorState extends State<Editor> {
             createPage(image.pageIndex);
             coreInfo.pages[image.pageIndex].images.add(image);
             image.newImage = true;
+          }
+          for (final tb in item.textBoxes) {
+            createPage(tb.pageIndex);
+            coreInfo.pages[tb.pageIndex].textBoxes.add(tb);
           }
 
         case .deletePage:
@@ -416,6 +428,14 @@ class EditorState extends State<Editor> {
               image.dstRect.top - item.offset!.top,
               image.dstRect.right - item.offset!.right,
               image.dstRect.bottom - item.offset!.bottom,
+            );
+          }
+          for (final tb in item.textBoxes) {
+            tb.dstRect = .fromLTRB(
+              tb.dstRect.left - item.offset!.left,
+              tb.dstRect.top - item.offset!.top,
+              tb.dstRect.right - item.offset!.right,
+              tb.dstRect.bottom - item.offset!.bottom,
             );
           }
 
@@ -542,7 +562,9 @@ class EditorState extends State<Editor> {
     dragPageIndex = onWhichPageIsFocalPoint(details.focalPoint);
     if (dragPageIndex == null) return false;
 
-    if (currentTool == Tool.textEditing) {
+    if (currentTool == Tool.textBox) {
+      return true;
+    } else if (currentTool == Tool.textEditing) {
       return false;
     } else if (stows.editorFingerDrawing.value ||
         currentPointerKind == PointerDeviceKind.stylus ||
@@ -626,6 +648,9 @@ class EditorState extends State<Editor> {
         for (final image in select.selectResult.images) {
           image.dstRect = image.dstRect.shift(offset);
         }
+        for (final tb in select.selectResult.textBoxes) {
+          tb.dstRect = tb.dstRect.shift(offset);
+        }
         select.selectResult.path = select.selectResult.path.shift(offset);
       } else {
         select.onDragUpdate(position);
@@ -690,6 +715,7 @@ class EditorState extends State<Editor> {
               pageIndex: dragPageIndex!,
               strokes: select.selectResult.strokes,
               images: select.selectResult.images,
+              textBoxes: select.selectResult.textBoxes,
               offset: .fromLTRB(
                 moveOffset.dx,
                 moveOffset.dy,
@@ -700,7 +726,7 @@ class EditorState extends State<Editor> {
           );
         } else {
           shouldSave = false;
-          select.onDragEnd(page.strokes, page.images);
+          select.onDragEnd(page.strokes, page.images, page.textBoxes);
 
           if (select.selectResult.isEmpty) {
             Select.currentSelect.unselect();
@@ -715,6 +741,63 @@ class EditorState extends State<Editor> {
           },
         );
         if (newStroke != null) page.laserStrokes.add(newStroke);
+      } else if (currentTool == Tool.textBox) {
+        shouldSave = false;
+        EditorTextBox? tappedTextBox;
+        for (final tb in page.textBoxes) {
+          if (tb.dstRect.contains(previousPosition)) {
+            tappedTextBox = tb;
+            break;
+          }
+        }
+
+        if (tappedTextBox != null) {
+          for (final p in coreInfo.pages) {
+            for (final tb in p.textBoxes) {
+              tb.isEditing = false;
+            }
+          }
+          tappedTextBox.isEditing = true;
+          tappedTextBox.quill.focusNode.requestFocus();
+          quillFocus.value = tappedTextBox.quill;
+        } else {
+          for (final p in coreInfo.pages) {
+            for (final tb in p.textBoxes) {
+              tb.isEditing = false;
+              tb.quill.focusNode.unfocus();
+            }
+          }
+
+          final double clampedX = (previousPosition.dx - 10).clamp(0.0, page.size.width - EditorTextBox.minWidth);
+          final double clampedY = (previousPosition.dy - 10).clamp(0.0, page.size.height - EditorTextBox.minHeight);
+          final double boxWidth = (page.size.width - clampedX - 20).clamp(EditorTextBox.minWidth, EditorTextBox.defaultWidth);
+
+          final newTextBox = EditorTextBox(
+            id: Random().nextInt(0x7fffffff),
+            pageIndex: dragPageIndex!,
+            dstRect: Rect.fromLTWH(clampedX, clampedY, boxWidth, EditorTextBox.defaultHeight),
+            quill: QuillStruct(
+              controller: flutter_quill.QuillController.basic(),
+              focusNode: FocusNode(debugLabel: 'TextBox Quill Focus Node'),
+            ),
+          );
+          newTextBox.isEditing = true;
+          page.textBoxes.add(newTextBox);
+          listenToQuillChanges(newTextBox.quill, dragPageIndex!);
+          quillFocus.value = newTextBox.quill;
+          newTextBox.quill.focusNode.requestFocus();
+
+          history.recordChange(
+            EditorHistoryItem(
+              type: .draw,
+              pageIndex: dragPageIndex!,
+              strokes: const [],
+              images: const [],
+              textBoxes: [newTextBox],
+            ),
+          );
+          shouldSave = true;
+        }
       }
     });
 
@@ -777,16 +860,41 @@ class EditorState extends State<Editor> {
   }
 
   void onDeleteImage(EditorImage image) {
+    final page = coreInfo.pages[image.pageIndex];
+    final isBackground = page.backgroundImage == image;
+
     history.recordChange(
       EditorHistoryItem(
         type: .erase,
         pageIndex: image.pageIndex,
-        strokes: [],
+        strokes: const [],
         images: [image],
+        textBoxes: const [],
       ),
     );
     setState(() {
-      coreInfo.pages[image.pageIndex].images.remove(image);
+      if (isBackground) {
+        page.backgroundImage = null;
+      } else {
+        page.images.remove(image);
+      }
+    });
+    autosaveAfterDelay();
+  }
+
+  void onDeleteTextBox(EditorTextBox textBox) {
+    final page = coreInfo.pages[textBox.pageIndex];
+    history.recordChange(
+      EditorHistoryItem(
+        type: .erase,
+        pageIndex: textBox.pageIndex,
+        strokes: const [],
+        images: const [],
+        textBoxes: [textBox],
+      ),
+    );
+    setState(() {
+      page.textBoxes.remove(textBox);
     });
     autosaveAfterDelay();
   }
@@ -811,8 +919,16 @@ class EditorState extends State<Editor> {
 
   void _onQuillFocusChange() {
     for (final page in coreInfo.pages) {
-      if (!page.quill.focusNode.hasFocus) continue;
-      quillFocus.value = page.quill;
+      if (page.quill.focusNode.hasFocus) {
+        quillFocus.value = page.quill;
+        return;
+      }
+      for (final tb in page.textBoxes) {
+        if (tb.quill.focusNode.hasFocus) {
+          quillFocus.value = tb.quill;
+          return;
+        }
+      }
     }
   }
 
@@ -1479,6 +1595,7 @@ class EditorState extends State<Editor> {
               final page = coreInfo.pages[select.selectResult.pageIndex];
               final strokes = select.selectResult.strokes;
               final images = select.selectResult.images;
+              final textBoxes = select.selectResult.textBoxes;
 
               const duplicationFeedbackOffset = Offset(25, -25);
 
@@ -1492,12 +1609,20 @@ class EditorState extends State<Editor> {
                   ..dstRect.shift(duplicationFeedbackOffset);
               }).toList();
 
+              final duplicatedTextBoxes = textBoxes.map((tb) {
+                final copy = tb.copy(offset: duplicationFeedbackOffset);
+                listenToQuillChanges(copy.quill, select.selectResult.pageIndex);
+                return copy;
+              }).toList();
+
               page.strokes.addAll(duplicatedStrokes);
               page.images.addAll(duplicatedImages);
+              page.textBoxes.addAll(duplicatedTextBoxes);
 
               select.selectResult = select.selectResult.copyWith(
                 strokes: duplicatedStrokes,
                 images: duplicatedImages,
+                textBoxes: duplicatedTextBoxes,
                 path: select.selectResult.path.shift(duplicationFeedbackOffset),
               );
 
@@ -1507,6 +1632,7 @@ class EditorState extends State<Editor> {
                   pageIndex: select.selectResult.pageIndex,
                   strokes: duplicatedStrokes,
                   images: duplicatedImages,
+                  textBoxes: duplicatedTextBoxes,
                 ),
               );
               autosaveAfterDelay();
@@ -1522,6 +1648,7 @@ class EditorState extends State<Editor> {
               final page = coreInfo.pages[select.selectResult.pageIndex];
               final strokes = select.selectResult.strokes;
               final images = select.selectResult.images;
+              final textBoxes = select.selectResult.textBoxes;
 
               for (final stroke in strokes) {
                 page.strokes.remove(stroke);
@@ -1529,15 +1656,19 @@ class EditorState extends State<Editor> {
               for (final image in images) {
                 page.images.remove(image);
               }
+              for (final tb in textBoxes) {
+                page.textBoxes.remove(tb);
+              }
 
               select.unselect();
 
               history.recordChange(
                 EditorHistoryItem(
                   type: .erase,
-                  pageIndex: strokes.first.pageIndex,
+                  pageIndex: select.selectResult.pageIndex,
                   strokes: strokes,
                   images: images,
+                  textBoxes: textBoxes,
                 ),
               );
               autosaveAfterDelay();
@@ -1571,12 +1702,15 @@ class EditorState extends State<Editor> {
                   history.recordChange(
                     EditorHistoryItem(
                       type: .changeColor,
-                      pageIndex: strokes.first.pageIndex,
+                      pageIndex: select.selectResult.pageIndex,
                       strokes: strokes,
+                      images: const [],
+                      textBoxes: const [],
                       colorChange: colorChange,
-                      images: [],
                     ),
                   );
+
+                  coreInfo.pages[select.selectResult.pageIndex].redrawStrokes();
                   autosaveAfterDelay();
                 }
               }
@@ -1593,6 +1727,10 @@ class EditorState extends State<Editor> {
                   page.quill.controller.selection.extentOffset,
                 );
                 page.quill.focusNode.unfocus();
+                for (final tb in page.textBoxes) {
+                  tb.isEditing = false;
+                  tb.quill.focusNode.unfocus();
+                }
               }
             } else {
               currentTool = Tool.textEditing;
@@ -1894,6 +2032,7 @@ class EditorState extends State<Editor> {
         autosaveAfterDelay();
         setState(() {});
       },
+      onDeleteTextBox: onDeleteTextBox,
       currentTool: currentTool,
       currentScale: _transformationController.value.approxScale,
     );

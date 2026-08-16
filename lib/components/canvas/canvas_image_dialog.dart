@@ -45,7 +45,6 @@ class _CanvasImageDialogState extends State<CanvasImageDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final platform = Theme.of(context).platform;
     final children = <Widget>[
       MergeSemantics(
         child: _CanvasImageDialogItem(
@@ -137,39 +136,55 @@ class _CanvasImageDialogState extends State<CanvasImageDialog> {
       ),
       _CanvasImageDialogItem(
         onTap: () {
+          if (widget.isBackground) {
+            widget.toggleAsBackground?.call();
+          }
           widget.image.onDeleteImage?.call(widget.image);
           widget.redrawImage();
           Navigator.of(context).pop();
         },
         title: t.editor.imageOptions.delete,
         child: const AdaptiveIcon(
-          icon: Icons.delete,
-          cupertinoIcon: CupertinoIcons.trash_fill,
+          icon: Icons.delete_outline,
+          cupertinoIcon: CupertinoIcons.trash,
         ),
       ),
     ];
 
-    final gridView = GridView.count(
-      crossAxisCount: widget.singleRow ? children.length : 2,
-      crossAxisSpacing: 8,
-      mainAxisSpacing: 8,
-      shrinkWrap: true,
-      children: children,
-    );
-    // issues with intrinsic sizes with each type of dialog
-    if (platform.isCupertino) {
-      return AspectRatio(
-        aspectRatio: widget.singleRow ? children.length / 1 : 2,
-        child: gridView,
+    if (widget.singleRow) {
+      return SizedBox(
+        height: 84,
+        child: Row(
+          children: [
+            for (final child in children)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: child,
+                ),
+              ),
+          ],
+        ),
       );
-    } else {
-      return SizedBox(width: 250, child: gridView);
     }
+
+    return SizedBox(
+      width: 270,
+      height: 180,
+      child: GridView.count(
+        crossAxisCount: 2,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        physics: const NeverScrollableScrollPhysics(),
+        childAspectRatio: 1.4,
+        children: children,
+      ),
+    );
   }
 }
 
 class _CanvasImageDialogItem extends StatelessWidget {
-  const new({
+  const _CanvasImageDialogItem({
     // ignore: unused_element_parameter
     super.key,
     required this.onTap,
@@ -185,16 +200,26 @@ class _CanvasImageDialogItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = ColorScheme.of(context);
     return Material(
-      color: colorScheme.primary.withValues(alpha: 0.05),
-      borderRadius: const .all(.circular(8)),
+      color: colorScheme.primary.withValues(alpha: 0.07),
+      borderRadius: const BorderRadius.all(Radius.circular(8)),
       child: InkWell(
+        borderRadius: const BorderRadius.all(Radius.circular(8)),
         onTap: onTap,
         child: Padding(
-          padding: const .symmetric(horizontal: 8, vertical: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Expanded(child: child),
-              Text(title, textAlign: .center),
+              Expanded(child: Center(child: child)),
+              const SizedBox(height: 2),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 12),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),

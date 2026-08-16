@@ -120,6 +120,7 @@ class _CanvasImageState extends State<CanvasImage> {
               onTap: () {
                 active = !active;
               },
+              onDoubleTap: showModal,
               onLongPress: active ? showModal : null,
               onSecondaryTap: active ? showModal : null,
               onPanStart: active
@@ -208,6 +209,32 @@ class _CanvasImageState extends State<CanvasImage> {
           ),
           if (widget.selected) // tint image if selected
             ColoredBox(color: colorScheme.primary.withValues(alpha: 0.5)),
+          if (!widget.readOnly && active && !widget.isBackground)
+            Positioned(
+              top: 6,
+              right: 6,
+              child: GestureDetector(
+                onTap: showModal,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: colorScheme.surface.withValues(alpha: 0.9),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.25),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.more_vert,
+                    size: 18,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ),
           if (!widget.readOnly)
             for (double x = -20; x <= 20; x += 20)
               for (double y = -20; y <= 20; y += 20)
